@@ -1,14 +1,8 @@
 package com.example.iraapplication;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.DialogFragment;
-
 import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.os.Bundle;
-import android.text.Editable;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -17,16 +11,24 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.iraapplication.adapters.Adapter;
+import com.example.iraapplication.domain.HistoryItem;
 import com.example.iraapplication.domain.ValutaItem;
 import com.example.iraapplication.pojo.Record;
 import com.example.iraapplication.pojo.ValCurs;
-
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
+import com.example.iraapplication.repos.IRepo;
+import com.example.iraapplication.repos.Repo;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Calendar;
-import java.util.concurrent.ScheduledExecutorService;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
@@ -43,6 +45,8 @@ import retrofit2.converter.simplexml.SimpleXmlConverterFactory;
 public class MainActivity extends AppCompatActivity {
 
     Button convert;
+    IRepo repo;
+    RecyclerView recyclerView;
 
     private int day;
     private int month;
@@ -70,6 +74,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        repo = new Repo(this);
+
+
+        RecyclerView recyclerView = findViewById(R.id.recycleView);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
+
+        updateHistory(recyclerView);
+
 
         resultView = findViewById(R.id.result);
 
@@ -102,12 +115,29 @@ public class MainActivity extends AppCompatActivity {
         convert.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                convert(((ValutaItem) from.getSelectedItem()).getId(), ((ValutaItem) to.getSelectedItem()).getId());
+                convert(((ValutaItem) from.getSelectedItem()).getId(), ((ValutaItem) to.getSelectedItem()).getId(),
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                Calendar calendar = Calendar.getInstance();
+
+                                repo.addHistoryItem(new HistoryItem(
+                                        calendar.getTime().toString(),
+                                        String.valueOf(getAmount()) + ((ValutaItem) from.getSelectedItem()).name(),
+                                        resultView.getText().toString() + ((ValutaItem) to.getSelectedItem()).name()
+                                ));
+                                updateHistory(recyclerView);
+                            }
+                        });
             }
         });
     }
 
-    private void convert(String idFrom, String idTo) {
+    private void updateHistory(RecyclerView recyclerView) {
+        recyclerView.setAdapter(new Adapter(repo.getHistory()));
+    }
+
+    private void convert(String idFrom, String idTo, Runnable callback) {
         CBRAPI cbrapi = retrofit.create(CBRAPI.class);
         Call<ValCurs> valutaCallFrom = cbrapi.loadValCurs(getDate(), getDate(), idFrom);
         Call<ValCurs> valutaCallTo = cbrapi.loadValCurs(getDate(), getDate(), idTo);
@@ -158,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onNext(String s) {
                         double d = getAmount() * Double.parseDouble(s);
                         resultView.setText(String.valueOf(d));
+                        callback.run();
                     }
 
                     @Override
