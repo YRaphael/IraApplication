@@ -7,14 +7,14 @@ import org.simpleframework.xml.Root;
 @Root(name = "Item", strict = false)
 public class Item {
 
-    public static final String RUB_ITEM_PARENT_CODE = "fixIssueConnectedWithAbsentOfRubInCBRF";
-    public static final Item RUB_ITEM = new Item() {
-        {
-            setParentCode(RUB_ITEM_PARENT_CODE);
-            setName("Российский рубль");
-            setEngName("");
-        }
-    };
+//    public static final String RUB_ITEM_PARENT_CODE = "fixIssueConnectedWithAbsentOfRubInCBRF";
+//    public static final Item RUB_ITEM = new Item() {
+//        {
+//            setParentCode(RUB_ITEM_PARENT_CODE);
+//            setName("Российский рубль");
+//            setEngName("");
+//        }
+//    };
 
     @Attribute(name = "ID")
     private String id;

@@ -77,7 +77,7 @@ public class DBHelper extends SQLiteOpenHelper {
         cv.put(COL_TO, item.getTo());
         List<HistoryItem> historyPrev = getItems();
         SQLiteDatabase writableDatabase = getWritableDatabase();
-        if (historyPrev.size() > 10) {
+        if (historyPrev.size() >= 10) {
             writableDatabase.delete(schemaName, "_id = ?", new String[]{historyPrev.get(0).getId()});
         }
         writableDatabase.insert(schemaName, null, cv);
@@ -88,6 +88,6 @@ public class DBHelper extends SQLiteOpenHelper {
         String time = cursor.getString(1);
         String from = cursor.getString(2);
         String to = cursor.getString(3);
-        result.add(new HistoryItem(id, time, from, to));
+        result.add(0, new HistoryItem(id, time, from, to));
     }
 }

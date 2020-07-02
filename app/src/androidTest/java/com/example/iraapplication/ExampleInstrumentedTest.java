@@ -5,8 +5,14 @@ import android.content.Context;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.example.iraapplication.domain.HistoryItem;
+import com.example.iraapplication.repos.IRepo;
+import com.example.iraapplication.repos.Repo;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -18,9 +24,41 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class ExampleInstrumentedTest {
     @Test
-    public void useAppContext() {
-        // Context of the app under test.
+    public void testHistorySize() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("com.example.iraapplication", appContext.getPackageName());
+        IRepo repo = new Repo(appContext);
+        assertTrue(repo.getHistory().size() <= 10);
     }
+
+    @Test
+    public void testHistoryElements() {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        IRepo repo = new Repo(appContext);
+        List<HistoryItem> history = repo.getHistory();
+        boolean result = true;
+        for (Object elem :
+                history) {
+            result &= (elem instanceof HistoryItem);
+        }
+        assertTrue(result);
+    }
+
+    @Test
+    public void testUpdatingHistory() {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        IRepo repo = new Repo(appContext);
+        HistoryItem historyItem = new HistoryItem("1", "1", "1");
+        repo.addHistoryItem(historyItem);
+        assertEquals(historyItem, repo.getHistory().get(0));
+    }
+
+    @Test
+    public void testIsCorrectSizeAfterUpdating() {
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        IRepo repo = new Repo(appContext);
+        HistoryItem historyItem = new HistoryItem("1", "1", "1");
+        repo.addHistoryItem(historyItem);
+        assertTrue(repo.getHistory().size() <= 10);
+    }
+
 }

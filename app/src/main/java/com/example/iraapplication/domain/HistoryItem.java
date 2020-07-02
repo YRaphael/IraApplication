@@ -1,5 +1,6 @@
 package com.example.iraapplication.domain;
 
+import java.util.Objects;
 import java.util.UUID;
 
 public class HistoryItem {
@@ -52,5 +53,20 @@ public class HistoryItem {
         this.time = time;
         this.from = from;
         this.to = to;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        HistoryItem that = (HistoryItem) o;
+        return getTime().equals(that.getTime()) &&
+                getFrom().equals(that.getFrom()) &&
+                getTo().equals(that.getTo());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getTime(), getFrom(), getTo());
     }
 }
