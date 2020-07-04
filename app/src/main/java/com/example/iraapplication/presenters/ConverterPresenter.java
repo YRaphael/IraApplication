@@ -1,113 +1,152 @@
 package com.example.iraapplication.presenters;
 
-import com.example.iraapplication.CBRAPI;
+import com.example.iraapplication.CBRConvertModel;
 import com.example.iraapplication.contracts.ConverterContract;
-import com.example.iraapplication.pojo.Record;
-import com.example.iraapplication.pojo.ValCurs;
+import com.example.iraapplication.contracts.HistoryContract;
+import com.example.iraapplication.domain.HistoryItem;
+import com.example.iraapplication.domain.SimpleDate;
+import com.example.iraapplication.domain.ValutaItem;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
 
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
-import io.reactivex.rxjava3.core.Observable;
-import io.reactivex.rxjava3.core.ObservableEmitter;
-import io.reactivex.rxjava3.core.ObservableOnSubscribe;
-import io.reactivex.rxjava3.core.Observer;
 import io.reactivex.rxjava3.disposables.Disposable;
-import retrofit2.Call;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.simplexml.SimpleXmlConverterFactory;
 
-public class ConverterPresenter {
-    private Retrofit retrofit;
+public class ConverterPresenter implements ConverterContract.Presenter {
+    private static final ValutaItem[] VALUTA_ITEMS = ValutaItem.values();
 
-    public ConverterPresenter() {
-        this.retrofit = new Retrofit.Builder()
-                .baseUrl("http://www.cbr.ru/scripts/")
-                .addConverterFactory(SimpleXmlConverterFactory.create())
-                .build();
+    private final ConverterContract.View converterView;
+    private final HistoryContract.View historyView;
+    private final HistoryContract.HistoryRepository historyRepository;
+
+    private ConverterContract.Model model = new CBRConvertModel();
+
+    private SimpleDate date;
+    private ValutaItem fromValuta;
+    private ValutaItem toValuta;
+
+    private Disposable convertDisposable;
+
+    private final ConverterContract.DateSelectListener dateSelectListener = new ConverterContract.DateSelectListener() {
+        @Override
+        public void onSelect(SimpleDate date) {
+            converterView.showDate(date);
+            ConverterPresenter.this.date = date;
+        }
+    };
+
+    public ConverterPresenter(
+            ConverterContract.View converterView,
+            HistoryContract.View  historyView,
+            HistoryContract.HistoryRepository historyRepository) {
+        this.converterView = converterView;
+        this.historyView = historyView;
+        this.historyRepository = historyRepository;
+
+        Calendar calendar = Calendar.getInstance();
+        date = new SimpleDate(
+                calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.MONTH) + 1,
+                calendar.get(Calendar.YEAR)
+        );
+
+        fromValuta = ValutaItem.US;
+        toValuta = ValutaItem.RUB;
     }
 
-    public void convert(ConverterContract converterContract, Runnable callback) {
-        CBRAPI cbrapi = retrofit.create(CBRAPI.class);
-        String date = converterContract.getDate();
+    @Override
+    public void onAttachView() {
+        converterView.showDate(date);
+        converterView.setFromValutaItems(VALUTA_ITEMS, getIndex(fromValuta));
+        converterView.setToValutaItems(VALUTA_ITEMS, getIndex(toValuta));
 
-        String idFrom = converterContract.getIdFrom();
-        Call<ValCurs> valutaCallFrom = cbrapi.loadValCurs(date, date, idFrom);
-        String idTo = converterContract.getIdTo();
-        Call<ValCurs> valutaCallTo = cbrapi.loadValCurs(date, date, idTo);
+        historyView.showHistory(historyRepository.getHistory());
+    }
 
-        Observable.create(new ObservableOnSubscribe<String>() {
-            @Override
-            public void subscribe(@io.reactivex.rxjava3.annotations.NonNull ObservableEmitter<String> emitter) throws Throwable {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Record from;
-                            Record to;
-                            if (idFrom.equals(Record.RUB_RECORD.getId())) {
-                                from = Record.RUB_RECORD;
-                            } else {
-                                Response<ValCurs> response = valutaCallFrom.execute();
-                                from = response.body().getRecord().get(0);
-                            }
+    @Override
+    public void onSelectDateClick() {
+        converterView.showDateSelector(dateSelectListener, date);
+    }
 
-                            if (idTo.equals(Record.RUB_RECORD.getId())) {
-                                to = Record.RUB_RECORD;
-                            } else {
-                                Response<ValCurs> response = valutaCallTo.execute();
-                                to = response.body().getRecord().get(0);
-                            }
-                            double result = pureConvert(from, to);
-                            emitter.onNext(String.valueOf(result));
+    @Override
+    public void onConvertClick() {
+        cancelDisposable();
 
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }).start();
+        ValutaItem fromLocal = fromValuta;
+        ValutaItem toLocal = toValuta;
+        SimpleDate dateLocal = date;
+
+        convertDisposable = model.getExchangeRate(
+                fromLocal,
+                toLocal,
+                dateLocal)
+        .subscribe(rate -> {
+            double amount;
+            try {
+                amount = Double.parseDouble(converterView.getEnteredAmount());
+            } catch (Throwable t) {
+                amount = 0d;
             }
-        })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<String>() {
+            double result = rate * amount;
 
-                    @Override
-                    public void onSubscribe(@io.reactivex.rxjava3.annotations.NonNull Disposable d) {
+            historyRepository.addHistoryItem(createHistoryItem(fromLocal, toLocal, amount, result, dateLocal));
 
-                    }
+            converterView.showResult(String.format(Locale.getDefault(), "%.2f", result));
 
-                    @Override
-                    public void onNext(String s) {
-                        double d = converterContract.getAmount() * Double.parseDouble(s);
-                        converterContract.setResult(String.valueOf(d));
-                        callback.run();
-                    }
-
-                    @Override
-                    public void onError(Throwable t) {
-
-                    }
-
-                    @Override
-                    public void onComplete() {
-
-                    }
-
-                });
-
-        converterContract.setResult("");
+            historyView.showHistory(historyRepository.getHistory());
+        }, t -> {
+            if (t instanceof IOException) {
+                converterView.showNetworkError();
+            } else {
+                converterView.showCommonError();
+            }
+        });
     }
 
-    public static double pureConvert(Record from, Record to) {
-
-        int fromNom = Integer.parseInt(from.getNominal());
-        double fromValue = Double.parseDouble(from.getValue().replace(",", "."));
-
-        int toNom = Integer.parseInt(to.getNominal());
-        double toValue = Double.parseDouble(to.getValue().replace(",", "."));
-
-        return (toNom * fromValue) / (fromNom * toValue);
+    @Override
+    public void onFromValutaSelected(ValutaItem selected) {
+        ConverterPresenter.this.fromValuta = selected;
     }
 
+    @Override
+    public void onToValutaSelected(ValutaItem selected) {
+        ConverterPresenter.this.toValuta = selected;
+    }
+
+    @Override
+    public void onDetachView() {
+        cancelDisposable();
+    }
+
+    private void cancelDisposable() {
+        if (convertDisposable != null) {
+            convertDisposable.dispose();
+        }
+        convertDisposable = null;
+    }
+
+    private int getIndex(ValutaItem item) {
+        for (int i = 0; i < VALUTA_ITEMS.length; i++) {
+            if (VALUTA_ITEMS[i] == item) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private HistoryItem createHistoryItem(
+            ValutaItem from,
+            ValutaItem to,
+            double amount,
+            double result,
+            SimpleDate date) {
+        String time = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                .format(date.toDate());
+        return new HistoryItem(
+                time,
+                String.format(Locale.getDefault(), "%.2f %s", amount, from.name()),
+                String.format(Locale.getDefault(), "%.2f %s", result, to.name()));
+    }
 }

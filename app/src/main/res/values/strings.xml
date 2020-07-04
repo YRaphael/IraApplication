@@ -1,4 +1,12 @@
 <resources>
     <string name="app_name">IraApplication</string>
-    <string name="amount">Введите количество</string>
+
+    <string name="amount">Номинал</string>
+    <string name="select_exchange_date">Выбрать дату</string>
+    <string name="convert">Конвертировать</string>
+    <string name="result">Результат</string>
+    <string name="date_hint">Дата</string>
+    <string name="error_network">Ошибка соединения</string>
+    <string name="error_common">Ошибка</string>
+
 </resources>

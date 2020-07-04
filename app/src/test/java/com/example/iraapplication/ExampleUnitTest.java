@@ -2,8 +2,6 @@ package com.example.iraapplication;
 
 import com.example.iraapplication.domain.ValutaItem;
 import com.example.iraapplication.pojo.Record;
-import com.example.iraapplication.pojo.Valuta;
-import com.example.iraapplication.presenters.ConverterPresenter;
 
 import org.junit.Test;
 
