@@ -6,6 +6,7 @@ import com.example.iraapplication.domain.SimpleDate;
 import com.example.iraapplication.domain.ValutaItem;
 import com.example.iraapplication.pojo.Record;
 import com.example.iraapplication.pojo.ValCurs;
+import com.example.iraapplication.utils.ConverterUtils;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -41,7 +42,7 @@ public class CBRConvertModel implements ConverterContract.Model {
         return Observable.fromCallable(() -> {
             Record from = getRecord(valutaFrom, valutaCallFrom);
             Record to = getRecord(valutaTo, valutaCallTo);
-            return pureConvert(from, to);
+            return ConverterUtils.pureConvert(from, to);
         })
                          .subscribeOn(Schedulers.io())
                          .observeOn(AndroidSchedulers.mainThread());
@@ -56,15 +57,5 @@ public class CBRConvertModel implements ConverterContract.Model {
                 .body()
                 .getRecord()
                 .get(0);
-    }
-
-    private double pureConvert(Record from, Record to) {
-        int fromNom = Integer.parseInt(from.getNominal());
-        double fromValue = Double.parseDouble(from.getValue().replace(",", "."));
-
-        int toNom = Integer.parseInt(to.getNominal());
-        double toValue = Double.parseDouble(to.getValue().replace(",", "."));
-
-        return (toNom * fromValue) / (fromNom * toValue);
     }
 }

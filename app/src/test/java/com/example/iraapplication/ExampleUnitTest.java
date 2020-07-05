@@ -2,6 +2,7 @@ package com.example.iraapplication;
 
 import com.example.iraapplication.domain.ValutaItem;
 import com.example.iraapplication.pojo.Record;
+import com.example.iraapplication.utils.ConverterUtils;
 
 import org.junit.Test;
 
@@ -17,8 +18,7 @@ public class ExampleUnitTest {
 
     @Test
     public void convert_isCorrect() {
-        ConverterPresenter converterPresenter = new ConverterPresenter();
-        assertEquals(converterPresenter.pureConvert(Record.RUB_RECORD, Record.RUB_RECORD), 1.0, 0.1);
+        assertEquals(ConverterUtils.pureConvert(Record.RUB_RECORD, Record.RUB_RECORD), 1.0, 0.1);
     }
 
     @Test
