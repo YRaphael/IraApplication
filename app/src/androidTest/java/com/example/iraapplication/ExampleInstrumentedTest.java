@@ -2,19 +2,19 @@ package com.example.iraapplication;
 
 import android.content.Context;
 
-import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.example.iraapplication.domain.HistoryItem;
-import com.example.iraapplication.repos.IRepo;
-import com.example.iraapplication.repos.Repo;
+import com.example.iraapplication.repos.HistoryRepository;
+import com.example.iraapplication.repos.SqliteHistoryRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Instrumented test, which will execute on an Android device.
@@ -26,14 +26,14 @@ public class ExampleInstrumentedTest {
     @Test
     public void testHistorySize() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        IRepo repo = new Repo(appContext);
+        HistoryRepository repo = new SqliteHistoryRepository(appContext);
         assertTrue(repo.getHistory().size() <= 10);
     }
 
     @Test
     public void testHistoryElements() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        IRepo repo = new Repo(appContext);
+        HistoryRepository repo = new SqliteHistoryRepository(appContext);
         List<HistoryItem> history = repo.getHistory();
         boolean result = true;
         for (Object elem :
@@ -46,7 +46,7 @@ public class ExampleInstrumentedTest {
     @Test
     public void testUpdatingHistory() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        IRepo repo = new Repo(appContext);
+        HistoryRepository repo = new SqliteHistoryRepository(appContext);
         HistoryItem historyItem = new HistoryItem("1", "1", "1");
         repo.addHistoryItem(historyItem);
         assertEquals(historyItem, repo.getHistory().get(0));
@@ -55,7 +55,7 @@ public class ExampleInstrumentedTest {
     @Test
     public void testIsCorrectSizeAfterUpdating() {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        IRepo repo = new Repo(appContext);
+        HistoryRepository repo = new SqliteHistoryRepository(appContext);
         HistoryItem historyItem = new HistoryItem("1", "1", "1");
         repo.addHistoryItem(historyItem);
         assertTrue(repo.getHistory().size() <= 10);

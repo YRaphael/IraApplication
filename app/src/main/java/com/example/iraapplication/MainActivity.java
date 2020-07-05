@@ -1,243 +1,177 @@
 package com.example.iraapplication;
 
 import android.app.DatePickerDialog;
-import android.app.Dialog;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.iraapplication.adapters.Adapter;
+import com.example.iraapplication.adapters.HistoryAdapter;
 import com.example.iraapplication.contracts.ConverterContract;
 import com.example.iraapplication.contracts.HistoryContract;
 import com.example.iraapplication.domain.HistoryItem;
+import com.example.iraapplication.domain.SimpleDate;
 import com.example.iraapplication.domain.ValutaItem;
-import com.example.iraapplication.pojo.Record;
-import com.example.iraapplication.pojo.ValCurs;
 import com.example.iraapplication.presenters.ConverterPresenter;
-import com.example.iraapplication.presenters.HistoryPresenter;
-import com.example.iraapplication.repos.IRepo;
-import com.example.iraapplication.repos.Repo;
+import com.example.iraapplication.repos.SqliteHistoryRepository;
 
-import java.io.IOException;
-import java.util.Arrays;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
 
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
-import io.reactivex.rxjava3.core.Observable;
-import io.reactivex.rxjava3.core.ObservableEmitter;
-import io.reactivex.rxjava3.core.ObservableOnSubscribe;
-import io.reactivex.rxjava3.core.Observer;
-import io.reactivex.rxjava3.disposables.Disposable;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.simplexml.SimpleXmlConverterFactory;
+import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 
-public class MainActivity extends AppCompatActivity implements ConverterContract, HistoryContract {
+public class MainActivity extends AppCompatActivity
+        implements ConverterContract.View, HistoryContract.View {
 
-    private Spinner from;
-    private Spinner to;
+    private final ConverterContract.Presenter convertPresenter = new ConverterPresenter(
+            this, this, new SqliteHistoryRepository(this));
 
-    private Button convert;
-    private RecyclerView recyclerView;
+    private TextView tvDate;
+    private EditText etAmount;
+    private TextView tvResult;
 
-    private Button currDay;
-    private TextView resultView;
+    private Spinner fromValutaSelector;
+    private Spinner toValutaSelector;
 
-    private ConverterPresenter presenter;
-    private HistoryPresenter historyPresenter;
-
-
-
-
-    private int day;
-    private int month;
-    private int year;
-
-
-
-    {
-        Calendar calendar = Calendar.getInstance();
-
-        day = calendar.get(Calendar.DATE);
-        month = calendar.get(Calendar.MONTH) + 1;
-        year = calendar.get(Calendar.YEAR);
-    }
-
+    private HistoryAdapter historyAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        RxJavaPlugins.setErrorHandler(throwable -> {});
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        MainActivity act = this;
+        tvDate = findViewById(R.id.tv_date);
+        etAmount = findViewById(R.id.amount);
+        tvResult = findViewById(R.id.result);
 
+        Button selectDateBtn = findViewById(R.id.btn_select_date);
+        selectDateBtn.setOnClickListener(view -> convertPresenter.onSelectDateClick());
 
-        presenter = new ConverterPresenter();
-        historyPresenter = new HistoryPresenter(this);
-
-
-        resultView = findViewById(R.id.result);
-        currDay = findViewById(R.id.currentDay);
-        from = findViewById(R.id.from);
-        to = findViewById(R.id.to);
-        convert = findViewById(R.id.convert);
-        recyclerView = findViewById(R.id.recycleView);
-
-        initSpinners();
-        setDate(getDate());
-        initHistoryRV();
-
-        convert.setOnClickListener(new View.OnClickListener() {
+        fromValutaSelector = findViewById(R.id.from);
+        fromValutaSelector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onClick(View view) {
-                presenter.convert(act, new Runnable() {
-                    @Override
-                    public void run() {
-                        historyPresenter.addHistoryItem(act);
-                        updateHistory();
-                    }
-                });
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                ValutaItem valutaFrom = (ValutaItem) fromValutaSelector.getAdapter().getItem(i);
+                convertPresenter.onFromValutaSelected(valutaFrom);
             }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {}
         });
 
-        currDay.setOnClickListener(new View.OnClickListener() {
+        toValutaSelector = findViewById(R.id.to);
+        toValutaSelector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
-            public void onClick(View view) {
-                DialogFragment newFragment = new MainActivity.DatePickerFragment(year, month - 1, day, act);
-                newFragment.show(getSupportFragmentManager(), "datePicker");
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                ValutaItem valutaTo = (ValutaItem) toValutaSelector.getAdapter().getItem(i);
+                convertPresenter.onToValutaSelected(valutaTo);
             }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {}
         });
 
-    }
+        Button convertBtn = findViewById(R.id.convert);
+        convertBtn.setOnClickListener(view -> convertPresenter.onConvertClick());
 
-    private void initHistoryRV() {
-        recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
-        updateHistory();
-    }
+        RecyclerView recyclerView = findViewById(R.id.recycleView);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
 
-    private void initSpinners() {
-        ArrayAdapter<ValutaItem> adapterFrom = new ArrayAdapter<ValutaItem>(this, android.R.layout.simple_list_item_1, getValutaItems());
-        ArrayAdapter<ValutaItem> adapterTo = new ArrayAdapter<ValutaItem>(this, android.R.layout.simple_list_item_1, getValutaItems());
+        historyAdapter = new HistoryAdapter();
+        recyclerView.setAdapter(historyAdapter);
 
-        from.setAdapter(adapterFrom);
-        to.setAdapter(adapterTo);
-    }
-
-    private ValutaItem[] getValutaItems() {
-        return new ValutaItem[]{ValutaItem.RUB, ValutaItem.EUR, ValutaItem.US, ValutaItem.IEN};
-    }
-
-
-    public void setCurrentDate(int i, int i2, int i3) {
-        day = i;
-        month = i2;
-        year = i3;
-    }
-
-    public static class DatePickerFragment extends DialogFragment implements DatePickerDialog.OnDateSetListener {
-
-        private int year;
-
-        private int month;
-        private int day;
-        private MainActivity activity;
-
-        public DatePickerFragment(int year, int month, int day, MainActivity activity) {
-            this.year = year;
-            this.month = month;
-            this.day = day;
-            this.activity = activity;
-        }
-
-        @NonNull
-        @Override
-        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-            return new DatePickerDialog(getContext(), this, year, month, day);
-        }
-
-        @Override
-        public void onDateSet(DatePicker datePicker, int i, int i1, int i2) {
-            System.out.println(i);
-            System.out.println(i1);
-            System.out.println(i2);
-            activity.setCurrentDate(i2, i1 + 1, i);
-            activity.setDate(activity.getDate());
-        }
-
-
-    }
-
-
-    //    Контракт истории
-    @Override
-    public void updateHistory() {
-        recyclerView.setAdapter(historyPresenter.getHistory());
-    }
-
-    //    Контракт обменика
-    @Override
-    public String getIdFrom() {
-        return ((ValutaItem) from.getSelectedItem()).getId();
+        convertPresenter.onAttachView();
     }
 
     @Override
-    public String getIdTo() {
-        return ((ValutaItem) to.getSelectedItem()).getId();
+    protected void onDestroy() {
+        convertPresenter.onDetachView();
+        super.onDestroy();
+    }
+
+    // >>> Контракт конвертации
+
+    @Override
+    public void setFromValutaItems(ValutaItem[] items, int selected) {
+        ArrayAdapter<ValutaItem> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_list_item_1,
+                items);
+        fromValutaSelector.setAdapter(adapter);
+        fromValutaSelector.setSelection(selected);
     }
 
     @Override
-    public void setResult(String result) {
-        resultView.setText(result);
+    public void setToValutaItems(ValutaItem[] items, int selected) {
+        ArrayAdapter<ValutaItem> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_list_item_1,
+                items);
+        toValutaSelector.setAdapter(adapter);
+        toValutaSelector.setSelection(selected);
     }
 
     @Override
-    public void setDate(String date) {
-        TextView txt = findViewById(R.id.currDate);
-        txt.setText(getDate());
+    public void showDateSelector(ConverterContract.DateSelectListener listener, SimpleDate selected) {
+        DatePickerDialog datePickerDialog = new DatePickerDialog(
+                this,
+                (datePicker, y, m, d) -> listener.onSelect(new SimpleDate(d, m + 1, y)),
+                selected.year,
+                selected.month - 1,
+                selected.day);
+
+        datePickerDialog.getDatePicker().setMaxDate(Calendar.getInstance().getTimeInMillis());
+
+        datePickerDialog.show();
     }
 
     @Override
-    public String getDate() {
-        return ((day < 10) ? "0" + String.valueOf(day) : String.valueOf(day))
-                + "/"
-                + (((month) < 10) ? "0" + String.valueOf(month) : String.valueOf(month))
-                + "/" +
-                String.valueOf(year);
+    public void showDate(SimpleDate date) {
+        SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+        tvDate.setText(format.format(date.toDate()));
     }
 
     @Override
-    public int getAmount() {
-        EditText editText = findViewById(R.id.amount);
-        String text = editText.getText().toString();
-        return text.equals("") ? 1 : Integer.parseInt(text);
+    public void showResult(String result) {
+        tvResult.setText(result);
     }
 
     @Override
-    public String getFromName() {
-        return ((ValutaItem) from.getSelectedItem()).name();
+    public String getEnteredAmount() {
+        return etAmount.getText().toString();
     }
 
     @Override
-    public String getToName() {
-        return ((ValutaItem) to.getSelectedItem()).name();
+    public void showNetworkError() {
+        Toast.makeText(this, R.string.error_network, Toast.LENGTH_SHORT).show();
     }
 
     @Override
-    public String getResult() {
-        return resultView.getText().toString();
+    public void showCommonError() {
+        Toast.makeText(this, R.string.error_common, Toast.LENGTH_SHORT).show();
     }
+
+    // <<< Контракт конвертации
+
+    // >>> Контракт истории
+
+    @Override
+    public void showHistory(List<HistoryItem> history) {
+        historyAdapter.setItems(history);
+    }
+
+    // <<< Контракт истории
 }

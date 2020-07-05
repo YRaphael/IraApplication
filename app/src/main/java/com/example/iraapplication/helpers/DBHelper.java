@@ -78,7 +78,7 @@ public class DBHelper extends SQLiteOpenHelper {
         List<HistoryItem> historyPrev = getItems();
         SQLiteDatabase writableDatabase = getWritableDatabase();
         if (historyPrev.size() >= 10) {
-            writableDatabase.delete(schemaName, "_id = ?", new String[]{historyPrev.get(0).getId()});
+            writableDatabase.delete(schemaName, "_id = ?", new String[]{historyPrev.get(historyPrev.size() - 1).getId()});
         }
         writableDatabase.insert(schemaName, null, cv);
     }

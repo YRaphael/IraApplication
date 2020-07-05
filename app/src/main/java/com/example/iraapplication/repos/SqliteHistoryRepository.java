@@ -2,16 +2,17 @@ package com.example.iraapplication.repos;
 
 import android.content.Context;
 
+import com.example.iraapplication.contracts.HistoryContract;
 import com.example.iraapplication.domain.HistoryItem;
 import com.example.iraapplication.helpers.DBHelper;
 
 import java.util.List;
 
-public class Repo implements IRepo {
+public class SqliteHistoryRepository implements HistoryContract.HistoryRepository {
 
     private DBHelper dbHelper;
 
-    public Repo(Context ctx) {
+    public SqliteHistoryRepository(Context ctx) {
         dbHelper = new DBHelper(ctx);
     }
 

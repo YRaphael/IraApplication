@@ -1,23 +1,42 @@
 package com.example.iraapplication.contracts;
 
+import com.example.iraapplication.domain.SimpleDate;
+import com.example.iraapplication.domain.ValutaItem;
+
+import io.reactivex.rxjava3.core.Observable;
+
 public interface ConverterContract {
-    void setDate(String date);
 
-    String getDate();
+    interface View {
+        void setFromValutaItems(ValutaItem[] items, int selected);
+        void setToValutaItems(ValutaItem[] items, int selected);
+        void showDateSelector(DateSelectListener listener, SimpleDate selected);
 
-    void setResult(String result);
+        void showDate(SimpleDate date);
 
-    String getIdFrom();
+        void showResult(String result);
 
-    String getIdTo();
+        String getEnteredAmount();
 
-    int getAmount();
+        void showNetworkError();
+        void showCommonError();
+    }
 
-    String getFromName();
+    interface Presenter {
+        void onAttachView();
+        void onSelectDateClick();
+        void onConvertClick();
+        void onFromValutaSelected(ValutaItem selected);
+        void onToValutaSelected(ValutaItem selected);
+        void onDetachView();
+    }
 
-    String getToName();
+    interface Model {
+        Observable<Double> getExchangeRate(ValutaItem valutaFrom, ValutaItem valutaTo, SimpleDate date);
+    }
 
-    String getResult();
-
+    interface DateSelectListener {
+        void onSelect(SimpleDate date);
+    }
 
 }
